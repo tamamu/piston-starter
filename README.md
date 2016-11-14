@@ -4,7 +4,7 @@ This is an unofficial starter of Piston - a modular game engine written in Rust.
 It's the example that rolling a image.
 
 ## To Use
-```
+```bash
 # Clone this repository
 git clone https://github.com/tamamu/piston-starter
 # Go into the repository

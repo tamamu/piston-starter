@@ -2,14 +2,17 @@ extern crate piston_window;
 extern crate find_folder;
 extern crate gfx_device_gl;
 
+extern crate rand;
+
 use std::f64;
+use rand::{thread_rng, Rng, ThreadRng};
 use piston_window::*;
 use gfx_device_gl::Resources;
 
 const HALF: f64 = f64::consts::PI / 2.0;
 
+#[derive(Clone)]
 struct Object {
-    texture: Texture<Resources>,
     x: f64,
     y: f64,
     rot: f64,
@@ -19,7 +22,8 @@ struct Object {
 
 struct App {
     window: PistonWindow,
-    obj: Option<Object>,
+    obj: Vec<Object>,
+    texture: Option<Texture<Resources>>,
 }
 
 impl App {
@@ -27,14 +31,14 @@ impl App {
         let assets = find_folder::Search::ParentsThenKids(3, 3)
             .for_folder("assets")
             .unwrap();
-        let d_man = assets.join("d.png");
+        let d_man = assets.join("go.png");
         let d_man = Texture::from_path(&mut self.window.factory,
                                        &d_man,
                                        Flip::None,
                                        &TextureSettings::new())
             .unwrap();
-        self.obj = Some(Object {
-            texture: d_man,
+        self.texture = Some(d_man);
+        self.obj.push(Object {
             x: 400.0,
             y: 300.0,
             rot: 0.0,
@@ -42,52 +46,87 @@ impl App {
             spd: 600.0,
         });
     }
+
+
+    fn duplicate(&mut self, rng: &mut ThreadRng) {
+        let mut o = self.obj.first().expect("There is no Gopher!").clone();
+        let rnd = rng.gen::<f64>() % 10.0;
+        o.deg += HALF / 3.14 * rnd;
+        o.rot += HALF * 3.14 / rnd;
+        o.spd *= 1.8;
+        if o.spd > 18.0 {
+            o.spd -= 18.0;
+        }
+        self.obj.push(o);
+    }
+
     fn update(&mut self, args: &UpdateArgs) {
-        let mut obj = self.obj.as_mut().unwrap();
-        obj.rot += 6.0 * args.dt;
-        obj.x += obj.deg.cos() * obj.spd * args.dt;
-        obj.y += obj.deg.sin() * obj.spd * args.dt;
-        let (x, y) = (obj.x, obj.y);
-        let (w, h) = obj.texture.get_size();
-        let (w, h) = (w as f64, h as f64);
+        let (w, h) = self.texture.as_ref().unwrap().get_size();
+        let (w, h) = (w as f64 / 3.0, h as f64 / 3.0);
         let wsize = self.window.draw_size();
-        if x < w / 3.0 || x > wsize.width as f64 - w / 3.0 || y < h / 3.0 ||
-           y > wsize.height as f64 - h / 3.0 {
-            obj.deg += HALF;
+        let (ww, wh) = (wsize.width as f64, wsize.height as f64);
+        for o in self.obj.iter_mut() {
+            o.rot += 6.0 * args.dt;
+            o.x += o.deg.cos() * o.spd * args.dt;
+            o.y += o.deg.sin() * o.spd * args.dt;
+
+            if o.x < w || o.x > ww - w || o.y < h || o.y > wh - h {
+                o.deg += HALF;
+            }
         }
     }
     fn draw(&mut self, e: &Event) {
-        let obj = self.obj.as_mut().unwrap();
+        let ref obj = self.obj;
+        let texture = self.texture.as_ref().unwrap();
+        let (w, h) = self.texture.as_ref().unwrap().get_size();
+        let (w, h) = (-(w as f64 / 2.0), -(h as f64 / 2.0));
         self.window.draw_2d(e, |c, g| {
             clear([1.0; 4], g);
-            let (w, h) = obj.texture.get_size();
-            let (w, h) = (w as f64, h as f64);
-            let transform =
-                c.transform.trans(obj.x, obj.y).rot_rad(obj.rot).trans(-w / 2.0, -h / 2.0);
-            image(&obj.texture, transform, g);
+            for o in obj {
+                let transform = c.transform.trans(o.x, o.y).rot_rad(o.rot).trans(w, h);
+                image(texture, transform, g);
+            }
         });
     }
 }
 
+
+
 fn main() {
     let opengl = OpenGL::V3_2;
-    let window: PistonWindow = WindowSettings::new("D-Man", [800, 600])
+    let mut window: PistonWindow = WindowSettings::new("Gophers", [800, 600])
         .exit_on_esc(true)
         .opengl(opengl)
         .build()
         .unwrap();
 
+    window.set_position((300, 200));
+
     let mut app = App {
         window: window,
-        obj: None,
+        obj: Vec::new(),
+        texture: None,
     };
 
+    let mut acc_time = 0f64;
+    let mut rng = thread_rng();
+
     app.load();
+
+    // for i in 0..10000 {
+    // app.duplicate(&mut rng);
+    // }
 
     while let Some(e) = app.window.next() {
         app.draw(&e);
         if let Some(u) = e.update_args() {
             app.update(&u);
+            acc_time += u.dt;
+            if acc_time > 0.2 {
+                acc_time = 0.0;
+                app.duplicate(&mut rng);
+                app.window.set_title(format!("There are {} Gophers", app.obj.len()));
+            }
         }
     }
 }

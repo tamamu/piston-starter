@@ -7,7 +7,7 @@ repository = "https://github.com/tamamu/piston-starter.git"
 license = "MIT License"
 
 [[bin]]
-name = "spinning-square"
+name = "gopher-benchmark"
 
 [dependencies]
 #piston = "0.26.0"
@@ -20,3 +20,4 @@ gfx_device_gl = "0.11.2"
 #gfx_core = "0.4.0"
 #gfx = "0.12.1"
 piston_window = "0.57.0"
+rand = "0.3"

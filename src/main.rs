@@ -20,10 +20,29 @@ struct Object {
     spd: f64,
 }
 
+struct GameButton {
+    left: bool,
+    right: bool,
+    up: bool,
+    down: bool,
+}
+
+impl GameButton {
+    fn new() -> Self {
+        GameButton {
+            left: false,
+            right: false,
+            up: false,
+            down: false,
+        }
+    }
+}
+
 struct App {
     window: PistonWindow,
     obj: Vec<Object>,
     texture: Option<Texture<Resources>>,
+    pressed: GameButton,
 }
 
 impl App {
@@ -66,12 +85,12 @@ impl App {
         let wsize = self.window.draw_size();
         let (ww, wh) = (wsize.width as f64, wsize.height as f64);
         for o in self.obj.iter_mut() {
-            o.rot += 6.0 * args.dt;
-            o.x += o.deg.cos() * o.spd * args.dt;
-            o.y += o.deg.sin() * o.spd * args.dt;
+            // o.rot += 6.0 * args.dt;
+            // o.x += o.deg.cos() * o.spd * args.dt;
+            // o.y += o.deg.sin() * o.spd * args.dt;
 
             if o.x < w || o.x > ww - w || o.y < h || o.y > wh - h {
-                o.deg += HALF;
+                // o.deg += HALF;
             }
         }
     }
@@ -106,6 +125,7 @@ fn main() {
         window: window,
         obj: Vec::new(),
         texture: None,
+        pressed: GameButton::new(),
     };
 
     let mut acc_time = 0f64;
@@ -118,15 +138,72 @@ fn main() {
     // }
 
     while let Some(e) = app.window.next() {
-        app.draw(&e);
-        if let Some(u) = e.update_args() {
-            app.update(&u);
-            acc_time += u.dt;
-            if acc_time > 0.2 {
-                acc_time = 0.0;
-                app.duplicate(&mut rng);
-                app.window.set_title(format!("There are {} Gophers", app.obj.len()));
+        if let Some(p) = e.press_args() {
+            match p {
+                Button::Keyboard(key) => {
+                    match key {
+                        Key::Left => {
+                            app.pressed.left = true;
+                        }
+                        Key::Right => {
+                            app.pressed.right = true;
+                        }
+                        _ => {
+                            println!("Press other!");
+                        }
+                    }
+                }
+                _ => {}
             }
         }
+        if let Some(r) = e.release_args() {
+            match r {
+                Button::Keyboard(key) => {
+                    match key {
+                        Key::Left => {
+                            app.pressed.left = false;
+                        }
+                        Key::Right => {
+                            app.pressed.right = false;
+                        }
+                        _ => {
+                            println!("Release other!");
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        if let Some(u) = e.update_args() {
+            acc_time += u.dt;
+            if acc_time > 1.0 / 60.0 {
+
+                acc_time = 0.0;
+                {
+                    let mut o = app.obj.first_mut().unwrap();
+                    if app.pressed.left {
+                        o.x -= o.spd * u.dt;
+                    } else if app.pressed.right {
+                        o.x += o.spd * u.dt;
+                    }
+                }
+                app.update(&u);
+
+                // if acc_time > 0.2 {
+                // acc_time = 0.0;
+                // app.duplicate(&mut rng);
+                // }
+                app.window.set_title(format!("There are {} Gophers Left:{} Right:{}",
+                                             app.obj.len(),
+                                             app.pressed.left,
+                                             app.pressed.right));
+            }
+
+        }
+        if let Some(r) = e.render_args() {
+
+            app.draw(&e);
+        }
+
     }
 }
